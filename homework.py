@@ -167,7 +167,7 @@ def main():
 
     while True:
         try:
-            response = get_api_answer(bot, current_timestamp)
+            response = get_api_answer(current_timestamp)
             homework = check_response(response)[0]
             if status_cache != homework['status']:
                 status_cache = homework['status']
