@@ -70,9 +70,9 @@ def send_message(bot, message):
     """Send message to me in Telegram."""
     try:
         bot.send_message(
-                chat_id=TELEGRAM_CHAT_ID,
-                text=message,
-            )
+            chat_id=TELEGRAM_CHAT_ID,
+            text=message,
+        )
         hw_logger.info(f'Отправка сообщения:{message}')
     except SendMessageError as error:
         hw_logger.error(f'Сбой при отправке сообщения:{error}')
@@ -182,7 +182,8 @@ def main():
             time.sleep(RETRY_TIME)
         else:
             hw_logger.debug(
-              'При отработке одного цикла программы исключений не возникло.')
+                'При отработке одного цикла программы исключений не возникло.'
+            )
 
 
 if __name__ == '__main__':
