@@ -15,7 +15,7 @@ load_dotenv()
 logger = logging.getLogger('ya_bot')
 logger.setLevel(logging.DEBUG)
 handler = RotatingFileHandler(
-    __file__+'.log',
+    __file__ + '.log',
     maxBytes=50000000,
     backupCount=5
 )
