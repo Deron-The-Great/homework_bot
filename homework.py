@@ -2,7 +2,6 @@
 import logging
 import os
 import requests
-import sys
 import time
 
 import telegram
@@ -159,7 +158,7 @@ def main():
             response = get_api_answer(current_timestamp)
             homeworks = check_response(response)
             if homeworks:
-                homework = homework[0]
+                homework = homeworks[0]
                 if status_cache != homework['status']:
                     message = parse_status(homework)
                     send_message(bot, message)
