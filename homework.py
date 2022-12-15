@@ -72,6 +72,7 @@ class JSONError(Exception):
 
     pass
 
+
 class HomeworkStatusError(Exception):
     """Unexpected homework status in API response."""
 
@@ -105,7 +106,9 @@ def get_api_answer(timestamp):
     try:
         return response.json()
     except json.JSONDecodeError:
-        raise JSONError('Ответ не удалось привести к стандартным объектам Python')
+        raise JSONError(
+            'Ответ не удалось привести к стандартным объектам Python'
+        )
 
 
 def check_response(response):
