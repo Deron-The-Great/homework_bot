@@ -95,7 +95,7 @@ def send_message(bot, message):
         )
         logger.debug(f'Успешно тправлено сообщение:{message}')
     except TelegramError:
-        message = f'Сбой при отправке сообщения.'
+        message = 'Сбой при отправке сообщения.'
         logger.error(message, exc_info=True)
         raise SendMessageError(message)
 
