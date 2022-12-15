@@ -1,9 +1,11 @@
 """Bot for checking homework status by using Yandex Practicum API."""
+import json
 import logging
 import os
-import requests
 import time
+from http import HTTPStatus
 
+import requests
 import telegram
 from dotenv import load_dotenv
 from logging.handlers import RotatingFileHandler
@@ -28,7 +30,7 @@ ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
 
-HOMEVORK_VERDICT = {
+HOMEWORK_VERDICTS = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
     'reviewing': 'Работа взята на проверку ревьюером.',
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
@@ -59,6 +61,17 @@ class ResponseTypeError(Exception):
     pass
 
 
+class RequestError(Exception):
+    """Can't do request to API."""
+
+    pass
+
+
+class JSONError(Exception):
+    """Can't read JSON."""
+
+    pass
+
 class HomeworkStatusError(Exception):
     """Unexpected homework status in API response."""
 
@@ -77,21 +90,22 @@ def send_message(bot, message):
         logger.error(f'Сбой при отправке сообщения:{error}', exc_info=True)
 
 
-def get_api_answer(current_timestamp):
+def get_api_answer(timestamp):
     """Get answer from Yandex Practicum API."""
-    api_answer = requests.get(
-        url=ENDPOINT, headers=HEADERS,
-        params={'from_date': current_timestamp}
-    )
-    if api_answer.status_code != 200:
-        raise APIResponseError(
-            f'Некорректный ответ сервера. '
-            f'Код ответа: {api_answer.status_code}, '
-            f'URL = {ENDPOINT}, HEADERS = {HEADERS}, '
-            f'Параметры запроса: form_date = {current_timestamp}'
+    params = {'from_date': timestamp}
+    try:
+        response = requests.get(
+            url=ENDPOINT, headers=HEADERS, params=params
         )
-    print(api_answer)
-    return api_answer.json()
+
+        if response.status_code != HTTPStatus.OK:
+            raise Exception
+    except requests.exceptions.RequestException:
+        raise RequestError('Не удалось обратиться к API Яндекс Практикума.')
+    try:
+        return response.json()
+    except json.JSONDecodeError:
+        raise JSONError('Ответ не удалось привести к стандартным объектам Python')
 
 
 def check_response(response):
@@ -119,11 +133,11 @@ def parse_status(homework):
     if 'homework_status' not in homework:
         raise KeyError('В ответе API нет ключа homework_status')
     status = homework['homework_status']
-    if status not in HOMEVORK_VERDICT:
+    if status not in HOMEWORK_VERDICTS:
         raise HomeworkStatusError(
             f'Неожиданный статус домашней работы: {status}'
         )
-    verdict = HOMEVORK_VERDICT.get(status)
+    verdict = HOMEWORK_VERDICTS.get(status)
     return f'Изменился статус проверки работы "{name}". {verdict}'
 
 
