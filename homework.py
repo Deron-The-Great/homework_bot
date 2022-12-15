@@ -1,5 +1,4 @@
 """Bot for checking homework status by using Yandex Practicum API."""
-import json
 import os
 import time
 from http import HTTPStatus
@@ -15,7 +14,11 @@ load_dotenv()
 
 logger = logging.getLogger('ya_bot')
 logger.setLevel(logging.DEBUG)
-handler = RotatingFileHandler(__file__+'.log', maxBytes=50000000, backupCount=5)
+handler = RotatingFileHandler(
+    __file__+'.log',
+    maxBytes=50000000,
+    backupCount=5
+)
 formatter = logging.Formatter(
     '%(name)s - %(asctime)s - %(levelname)s - %(message)s'
 )
@@ -35,14 +38,16 @@ HEADERS = {'Authorization': f'OAuth {TOKENS["PRACTICUM_TOKEN"]}'}
 MESSAGE_SEND = 'Успешно отправлено сообщение: {message}.'
 MESSAGE_SEND_ERROR = 'Сбой при отправке сообщения: {message}.'
 API_REQUEST_ERROR = (
-    'Не удалось обратиться к API Яндекс Практикума.'\
+    'Не удалось обратиться к API Яндекс Практикума.'
     ' Использован: URL={url}, headers={headers}, params={params}'
 )
 STATUS_CODE_ERROR = (
-    'Получен неожиданный ответ от сервера: {code}.'\
+    'Получен неожиданный ответ от сервера: {code}.'
     ' Использован: URL={url}, headers={headers}, params={params}'
 )
-RESPONSE_ERROR = 'API отказало в обслуживании. Код ошибки: {code}, ошибка: {error}'
+RESPONSE_ERROR = (
+    'API отказало в обслуживании. Код ошибки: {code}, ошибка: {error}'
+)
 TYPE_ERROR_RESPONSE = (
     'Полученный ответ API не является типом dict. Тип ответа: {type}'
 )
@@ -54,7 +59,9 @@ STATUS_EXEPTION = 'Неожиданный статус домашней рабо
 PARSE_STATUS = 'Изменился статус проверки работы "{name}". {verdict}'
 MISSING_TOKEN = 'Токен {name} отсутствует. Программа отсановлена.'
 TOKENS_LOAD_CORRECTLY = 'Токены загрузились корректно.'
-TOKENS_LOAD_UNCORRECTLY = 'Отсутствует одна или несколько из обязательных переменных.'
+TOKENS_LOAD_UNCORRECTLY = (
+    'Отсутствует одна или несколько из обязательных переменных.'
+)
 START = 'Бот начал работу'
 NO_UPDATES = 'Обновлений нет'
 ERROR = 'Сбой в работе программы: {error}'
@@ -142,11 +149,18 @@ def get_api_answer(timestamp):
         )
     except requests.exceptions.RequestException:
         raise ConnectionError(
-            API_REQUEST_ERROR.format(url=ENDPOINT, headers=HEADERS, params=params)
+            API_REQUEST_ERROR.format(
+                url=ENDPOINT,
+                headers=HEADERS,
+                params=params
+            )
         )
     if response.status_code != HTTPStatus.OK:
         raise StatusCodeError(STATUS_CODE_ERROR.format(
-            code=response.status_code, url=ENDPOINT, headers=HEADERS, params=params
+            code=response.status_code,
+            url=ENDPOINT,
+            headers=HEADERS,
+            params=params
         ))
     if ("error" in response.json()) or ("code" in response.json()):
         raise ResponseError(RESPONSE_ERROR.format(
