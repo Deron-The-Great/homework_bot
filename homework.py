@@ -1,10 +1,10 @@
 """Bot for checking homework status by using Yandex Practicum API."""
 import json
-import logging
 import os
 import time
 from http import HTTPStatus
 
+import logging
 import requests
 import telegram
 from dotenv import load_dotenv
@@ -15,21 +15,49 @@ load_dotenv()
 
 logger = logging.getLogger('ya_bot')
 logger.setLevel(logging.DEBUG)
-handler = RotatingFileHandler('main.log', maxBytes=50000000, backupCount=5)
+handler = RotatingFileHandler(__file__+'.log', maxBytes=50000000, backupCount=5)
 formatter = logging.Formatter(
     '%(name)s - %(asctime)s - %(levelname)s - %(message)s'
 )
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
-TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
-TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+TOKENS = {
+    "PRACTICUM_TOKEN": os.getenv('PRACTICUM_TOKEN'),
+    "TELEGRAM_TOKEN": os.getenv('TELEGRAM_TOKEN'),
+    "TELEGRAM_CHAT_ID": os.getenv('TELEGRAM_CHAT_ID')
+}
 
 RETRY_PERIOD = 600
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
-HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
+HEADERS = {'Authorization': f'OAuth {TOKENS["PRACTICUM_TOKEN"]}'}
 
+MESSAGE_SEND = 'Успешно отправлено сообщение: {message}.'
+MESSAGE_SEND_ERROR = 'Сбой при отправке сообщения: {message}.'
+API_REQUEST_ERROR = (
+    'Не удалось обратиться к API Яндекс Практикума.'\
+    ' Использован: URL={url}, headers={headers}, params={params}'
+)
+STATUS_CODE_ERROR = (
+    'Получен неожиданный ответ от сервера: {code}.'\
+    ' Использован: URL={url}, headers={headers}, params={params}'
+)
+RESPONSE_ERROR = 'API отказало в обслуживании. Код ошибки: {code}, ошибка: {error}'
+TYPE_ERROR_RESPONSE = (
+    'Полученный ответ API не является типом dict. Тип ответа: {type}'
+)
+KEY_ERROR = 'В словаре отстутсвует необходимый ключ: {key}'
+TYPE_ERROR_HOMEWORK = (
+    'Полученные домашние работы не содержаться в list. Тип: {type}'
+)
+STATUS_EXEPTION = 'Неожиданный статус домашней работы: {status}'
+PARSE_STATUS = 'Изменился статус проверки работы "{name}". {verdict}'
+MISSING_TOKEN = 'Токен {name} отсутствует. Программа отсановлена.'
+TOKENS_LOAD_CORRECTLY = 'Токены загрузились корректно.'
+TOKENS_LOAD_UNCORRECTLY = 'Отсутствует одна или несколько из обязательных переменных.'
+START = 'Бот начал работу'
+NO_UPDATES = 'Обновлений нет'
+ERROR = 'Сбой в работе программы: {error}'
 
 HOMEWORK_VERDICTS = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
@@ -62,6 +90,12 @@ class ResponseTypeError(Exception):
     pass
 
 
+class StatusCodeError(Exception):
+    """Wrong status code in API response."""
+
+    pass
+
+
 class KeyError(Exception):
     """Wrong key in API response."""
 
@@ -74,8 +108,8 @@ class RequestError(Exception):
     pass
 
 
-class JSONError(Exception):
-    """Can't read JSON."""
+class ResponseError(Exception):
+    """API refuse to service."""
 
     pass
 
@@ -90,14 +124,13 @@ def send_message(bot, message):
     """Send message to me in Telegram."""
     try:
         bot.send_message(
-            chat_id=TELEGRAM_CHAT_ID,
+            chat_id=TOKENS["TELEGRAM_CHAT_ID"],
             text=message,
         )
-        logger.debug(f'Успешно тправлено сообщение:{message}')
+        logger.debug(MESSAGE_SEND.format(message=message))
     except TelegramError:
-        message = 'Сбой при отправке сообщения.'
-        logger.error(message, exc_info=True)
-        raise SendMessageError(message)
+        logger.error(MESSAGE_SEND_ERROR.format(message=message), exc_info=True)
+        raise SendMessageError(MESSAGE_SEND_ERROR.format(message=message))
 
 
 def get_api_answer(timestamp):
@@ -107,74 +140,69 @@ def get_api_answer(timestamp):
         response = requests.get(
             url=ENDPOINT, headers=HEADERS, params=params
         )
-
-        if response.status_code != HTTPStatus.OK:
-            raise Exception
     except requests.exceptions.RequestException:
-        raise RequestError('Не удалось обратиться к API Яндекс Практикума.')
-    try:
-        return response.json()
-    except json.JSONDecodeError:
-        raise JSONError(
-            'Ответ не удалось привести к стандартным объектам Python'
+        raise ConnectionError(
+            API_REQUEST_ERROR.format(url=ENDPOINT, headers=HEADERS, params=params)
         )
+    if response.status_code != HTTPStatus.OK:
+        raise StatusCodeError(STATUS_CODE_ERROR.format(
+            code=response.status_code, url=ENDPOINT, headers=HEADERS, params=params
+        ))
+    if ("error" in response.json()) or ("code" in response.json()):
+        raise ResponseError(RESPONSE_ERROR.format(
+            code=response.json()["code"],
+            error=response.json()["error"]
+        ))
+    return response.json()
 
 
 def check_response(response):
     """Check response from Yandex Practicum API."""
     if not isinstance(response, dict):
-        raise TypeError('Полученный ответ API не является типом dict')
+        raise TypeError(TYPE_ERROR_RESPONSE.format(type=type(response)))
     keys = ('homeworks', 'current_date')
     for key in keys:
         if key not in response:
-            raise KeyError(
-                f'В словаре отстутсвует необходимый ключ: {key}'
-            )
+            raise KeyError(KEY_ERROR.format(key=key))
     homeworks = response.get('homeworks')
     if not isinstance(homeworks, list):
-        raise TypeError('Полученные домашние работы не содержаться в list')
+        raise TypeError(TYPE_ERROR_HOMEWORK.format(type=type(homeworks)))
     return homeworks
 
 
 def parse_status(homework):
     """Parse homework from response of Yandex Practicum API."""
     if 'homework_name' not in homework:
-        raise KeyError('В ответе API нет ключа homework_name')
+        raise KeyError(KEY_ERROR.format(key='homework_name'))
     name = homework['homework_name']
     if 'status' not in homework:
-        raise KeyError('В ответе API нет ключа homework_status')
+        raise KeyError(KEY_ERROR.format(key='status'))
     status = homework['status']
     if status not in HOMEWORK_VERDICTS:
-        raise HomeworkStatusError(
-            f'Неожиданный статус домашней работы: {status}'
-        )
+        raise HomeworkStatusError(STATUS_EXEPTION.format(status=status))
     verdict = HOMEWORK_VERDICTS.get(status)
-    return f'Изменился статус проверки работы "{name}". {verdict}'
+    return PARSE_STATUS.format(name=name, verdict=verdict)
 
 
 def check_tokens():
     """Check if tokens load correctly."""
     is_correct = True
-    for name in ['PRACTICUM_TOKEN', 'TELEGRAM_TOKEN', 'TELEGRAM_CHAT_ID']:
-        if globals()[name] is None:
-            logger.critical(
-                f'Токен {name} отсутствует. Программа отсановлена.'
-            )
+    for name, token in TOKENS:
+        if token is None:
+            logger.critical(MISSING_TOKEN.format(name=name))
             is_correct = False
-    logger.debug('Токены загрузились корректно.')
+    logger.debug(TOKENS_LOAD_CORRECTLY)
     return is_correct
 
 
 def main():
     """Do main bot logic."""
     if not check_tokens():
-        logger.critical(
-            'Отсутствует одна или несколько из обязательных переменных.'
-        )
-        raise TokenError
+        logger.critical(TOKENS_LOAD_UNCORRECTLY)
+        raise ValueError(TOKENS_LOAD_UNCORRECTLY)
 
-    logger.info('Бот начал работу')
-    bot = telegram.Bot(token=TELEGRAM_TOKEN)
+    logger.info(START)
+    bot = telegram.Bot(token=TOKENS["TELEGRAM_TOKEN"])
     current_timestamp = 0
     status_cache = None
 
@@ -189,12 +217,13 @@ def main():
                     send_message(bot, message)
                     status_cache = homework['status']
                 else:
-                    logger.debug('Обновлений нет')
+                    logger.debug(NO_UPDATES)
                 current_timestamp = response['current_date']
         except Exception as error:
-            message = f'Сбой в работе программы: {error}'
+            message = ERROR.format(error=error)
             logger.error(message, exc_info=True)
-            send_message(bot=bot, message=message)
+            if error != TelegramError:
+                send_message(bot=bot, message=message)
         time.sleep(RETRY_PERIOD)
 
 
