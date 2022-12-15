@@ -61,6 +61,12 @@ class ResponseTypeError(Exception):
     pass
 
 
+class KeyError(Exception):
+    """Wrong key in API response."""
+
+    pass
+
+
 class RequestError(Exception):
     """Can't do request to API."""
 
@@ -113,18 +119,17 @@ def get_api_answer(timestamp):
 
 def check_response(response):
     """Check response from Yandex Practicum API."""
-    print(response)
-    if isinstance(response, list):
-        response = response[0]
     if not isinstance(response, dict):
-        raise ResponseTypeError('В ответе API неверный тип данных')
-    if 'homeworks' not in response:
-        raise KeyError('В ответе API нет ключа homeworks')
+        raise TypeError('Полученный ответ API не является типом dict')
+    keys = ('homeworks', 'current_date')
+    for key in keys:
+        if key not in response:
+            raise KeyError(
+                f'В словаре отстутсвует необходимый ключ: {key}'
+            )
     homeworks = response.get('homeworks')
     if not isinstance(homeworks, list):
-        raise ResponseTypeError(
-            'В ответе API неверный тип данных по ключу homeworks'
-        )
+        raise TypeError('Полученные домашние работы не содержаться в list')
     return homeworks
 
 
