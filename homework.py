@@ -9,6 +9,7 @@ import requests
 import telegram
 from dotenv import load_dotenv
 from logging.handlers import RotatingFileHandler
+from telegram.error import TelegramError
 
 load_dotenv()
 
@@ -93,8 +94,8 @@ def send_message(bot, message):
             text=message,
         )
         logger.debug(f'Успешно тправлено сообщение:{message}')
-    except SendMessageError as error:
-        message = f'Сбой при отправке сообщения:{error}'
+    except TelegramError:
+        message = f'Сбой при отправке сообщения.'
         logger.error(message, exc_info=True)
         raise SendMessageError(message)
 
