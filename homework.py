@@ -25,15 +25,14 @@ formatter = logging.Formatter(
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-TOKENS = {
-    "PRACTICUM_TOKEN": os.getenv('PRACTICUM_TOKEN'),
-    "TELEGRAM_TOKEN": os.getenv('TELEGRAM_TOKEN'),
-    "TELEGRAM_CHAT_ID": os.getenv('TELEGRAM_CHAT_ID')
-}
+PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN') 
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN') 
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+TOKENS = ['PRACTICUM_TOKEN', 'TELEGRAM_TOKEN', 'TELEGRAM_CHAT_ID']
 
 RETRY_PERIOD = 600
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
-HEADERS = {'Authorization': f'OAuth {TOKENS["PRACTICUM_TOKEN"]}'}
+HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
 MESSAGE_SEND = 'Успешно отправлено сообщение: {message}.'
 MESSAGE_SEND_ERROR = 'Сбой при отправке сообщения: {message}.'
@@ -131,7 +130,7 @@ def send_message(bot, message):
     """Send message to me in Telegram."""
     try:
         bot.send_message(
-            chat_id=TOKENS["TELEGRAM_CHAT_ID"],
+            chat_id=TELEGRAM_CHAT_ID,
             text=message,
         )
         logger.debug(MESSAGE_SEND.format(message=message))
@@ -201,8 +200,8 @@ def parse_status(homework):
 def check_tokens():
     """Check if tokens load correctly."""
     is_correct = True
-    for name, token in TOKENS:
-        if token is None:
+    for name in TOKENS:
+        if globals()[name] is None:
             logger.critical(MISSING_TOKEN.format(name=name))
             is_correct = False
     logger.debug(TOKENS_LOAD_CORRECTLY)
