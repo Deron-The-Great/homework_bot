@@ -7,12 +7,13 @@ import time
 
 import telegram
 from dotenv import load_dotenv
+from logging.handlers import RotatingFileHandler
 
 load_dotenv()
 
 logger = logging.getLogger('ya_bot')
 logger.setLevel(logging.DEBUG)
-handler = logging.StreamHandler(stream=sys.stdout)
+handler = RotatingFileHandler('main.log', maxBytes=50000000, backupCount=5)
 formatter = logging.Formatter(
     '%(name)s - %(asctime)s - %(levelname)s - %(message)s'
 )
@@ -33,6 +34,12 @@ HOMEVORK_VERDICT = {
     'reviewing': 'Работа взята на проверку ревьюером.',
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
 }
+
+
+class TokenError(Exception):
+    """Error while loading tokens."""
+
+    pass
 
 
 class SendMessageError(Exception):
@@ -66,7 +73,7 @@ def send_message(bot, message):
             chat_id=TELEGRAM_CHAT_ID,
             text=message,
         )
-        logger.info(f'Отправлено сообщение:{message}')
+        logger.info(f'Успешно тправлено сообщение:{message}')
     except SendMessageError as error:
         logger.error(f'Сбой при отправке сообщения:{error}', exc_info=True)
 
@@ -140,23 +147,26 @@ def main():
         logger.critical(
             'Отсутствует одна или несколько из обязательных переменных.'
         )
-        raise Exception
+        raise TokenError
 
+    logger.info('Бот начал работу')
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    current_timestamp = int(time.time())
+    current_timestamp = 0
     status_cache = None
 
     while True:
         try:
             response = get_api_answer(current_timestamp)
-            homework = check_response(response)[0]
-            if status_cache != homework['status']:
-                message = parse_status(homework)
-                send_message(bot, message)
-                status_cache = homework['status']
-            else:
-                logger.debug('Обновлений нет')
-            current_timestamp = response['current_date']
+            homeworks = check_response(response)
+            if homeworks:
+                homework = homework[0]
+                if status_cache != homework['status']:
+                    message = parse_status(homework)
+                    send_message(bot, message)
+                    status_cache = homework['status']
+                else:
+                    logger.debug('Обновлений нет')
+                current_timestamp = response['current_date']
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
             logger.error(message, exc_info=True)
