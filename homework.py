@@ -92,9 +92,11 @@ def send_message(bot, message):
             chat_id=TELEGRAM_CHAT_ID,
             text=message,
         )
-        logger.info(f'Успешно тправлено сообщение:{message}')
+        logger.debug(f'Успешно тправлено сообщение:{message}')
     except SendMessageError as error:
-        logger.error(f'Сбой при отправке сообщения:{error}', exc_info=True)
+        message = f'Сбой при отправке сообщения:{error}'
+        logger.error(message, exc_info=True)
+        raise SendMessageError(message)
 
 
 def get_api_answer(timestamp):
