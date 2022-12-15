@@ -215,7 +215,7 @@ def main():
         raise ValueError(TOKENS_LOAD_UNCORRECTLY)
 
     logger.info(START)
-    bot = telegram.Bot(token=TOKENS["TELEGRAM_TOKEN"])
+    bot = telegram.Bot(token=TELEGRAM_TOKEN)
     current_timestamp = 0
     status_cache = None
 
