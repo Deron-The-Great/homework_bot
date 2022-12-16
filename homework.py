@@ -104,13 +104,13 @@ def get_api_answer(timestamp):
             **data
         ))
     json = response.json()
-    for key, value in json:
+    for key, value in json.items():
         if (key == "error") or (key == "code"):
             raise exceptions.ResponseError(RESPONSE_ERROR.format(
                 key=key,
                 value=value
             ))
-    return response.json()
+    return json
 
 
 def check_response(response):
