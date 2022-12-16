@@ -37,11 +37,12 @@ ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
 MESSAGE_SEND = 'Успешно отправлено сообщение: {message}.'
-MESSAGE_SEND_ERROR = 'Сбой при отправке сообщения: {message}.'
+MESSAGE_SEND_ERROR = 'Сбой при отправке сообщения: {message}. {error}'
 MESSAGE_NOT_SEND = 'Не удалось доставить пользователю сообщение об ошибке.'
 API_REQUEST_ERROR = (
     'Не удалось обратиться к API Яндекс Практикума.'
-    ' Использован: URL={url}, headers={headers}, params={params}'
+    ' Использован: URL={url}, headers={headers}, params={params}.'
+    ' {error}'
 )
 STATUS_CODE_ERROR = (
     'Получен неожиданный ответ от сервера: {code}.'
@@ -49,6 +50,7 @@ STATUS_CODE_ERROR = (
 )
 RESPONSE_ERROR = (
     'API отказало в обслуживании. {key}: {value}'
+    ' Использован: URL={url}, headers={headers}, params={params}'
 )
 TYPE_ERROR_RESPONSE = (
     'Полученный ответ API не является типом dict. Тип ответа: {type}'
@@ -83,32 +85,32 @@ def send_message(bot, message):
             text=message,
         )
         logger.debug(MESSAGE_SEND.format(message=message))
-    except TelegramError:
-        logger.error(MESSAGE_SEND_ERROR.format(message=message), exc_info=True)
-        raise exceptions.SendMessageError(
-            MESSAGE_SEND_ERROR.format(message=message)
-        )
+    except TelegramError as error:
+        message = MESSAGE_SEND_ERROR.format(message=message, error=error)
+        logger.error(message, exc_info=True)
+        raise exceptions.SendMessageError(message)
 
 
 def get_api_answer(timestamp):
     """Get answer from Yandex Practicum API."""
-    params = {'from_date': timestamp}
-    data = dict(url=ENDPOINT, headers=HEADERS, params=params)
+    data = dict(url=ENDPOINT, headers=HEADERS, params={'from_date': timestamp})
     try:
         response = requests.get(**data)
-    except requests.exceptions.RequestException:
-        raise ConnectionError(API_REQUEST_ERROR.format(**data))
+    except requests.exceptions.RequestException as error:
+        raise ConnectionError(API_REQUEST_ERROR.format(**data, error=error))
     if response.status_code != HTTPStatus.OK:
         raise exceptions.StatusCodeError(STATUS_CODE_ERROR.format(
             code=response.status_code,
             **data
         ))
     json = response.json()
-    for key, value in json.items():
-        if (key == "error") or (key == "code"):
+    for key in ['error', 'code']:
+        value=json.get(key)
+        if value:
             raise exceptions.ResponseError(RESPONSE_ERROR.format(
                 key=key,
-                value=value
+                value=value,
+                **data
             ))
     return json
 
@@ -118,7 +120,7 @@ def check_response(response):
     if not isinstance(response, dict):
         raise TypeError(TYPE_ERROR_RESPONSE.format(type=type(response)))
     if 'homeworks' not in response:
-        raise exceptions.KeyError(KEY_ERROR)
+        raise KeyError(KEY_ERROR)
     homeworks = response.get('homeworks')
     if not isinstance(homeworks, list):
         raise TypeError(TYPE_ERROR_HOMEWORK.format(type=type(homeworks)))
@@ -128,13 +130,13 @@ def check_response(response):
 def parse_status(homework):
     """Parse homework from response of Yandex Practicum API."""
     if 'homework_name' not in homework:
-        raise exceptions.KeyError(KEY_ERROR.format(key='homework_name'))
+        raise KeyError(KEY_ERROR.format(key='homework_name'))
     name = homework['homework_name']
     if 'status' not in homework:
-        raise exceptions.KeyError(KEY_ERROR.format(key='status'))
+        raise KeyError(KEY_ERROR.format(key='status'))
     status = homework['status']
     if status not in HOMEWORK_VERDICTS:
-        raise exceptions.HomeworkStatusError(
+        raise ValueError(
             STATUS_EXCEPTION.format(status=status)
         )
     verdict = HOMEWORK_VERDICTS.get(status)
