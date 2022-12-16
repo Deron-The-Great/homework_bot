@@ -31,12 +31,6 @@ class StatusCodeError(Exception):
     pass
 
 
-class KeyError(Exception):
-    """Wrong key in API response."""
-
-    pass
-
-
 class RequestError(Exception):
     """Can't do request to API."""
 
@@ -45,11 +39,5 @@ class RequestError(Exception):
 
 class ResponseError(Exception):
     """API refuse to service."""
-
-    pass
-
-
-class HomeworkStatusError(Exception):
-    """Unexpected homework status in API response."""
 
     pass
