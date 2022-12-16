@@ -10,7 +10,7 @@ import telegram
 from dotenv import load_dotenv
 from telegram.error import TelegramError
 
-from . import custom_exceptions as exceptions
+import custom_exceptions as exceptions
 
 load_dotenv()
 
